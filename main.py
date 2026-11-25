@@ -2,7 +2,9 @@
 
 Writes a single original joke about Monday mornings to /output/entry.txt
 (UTF-8, 1-200 characters). No input, no network, standard library only,
-same bytes on every run.
+same bytes on every run. The entry is validated (1-200 characters, not
+only whitespace) before anything is written, and write failures report
+the exact path and cause instead of failing silently.
 """
 
 import os
@@ -28,21 +30,31 @@ CANDIDATES = [
 
 PICK = 0
 
+MIN_CHARS = 1
 MAX_CHARS = 200
+DEFAULT_OUTPUT_DIR = "/output"
+OUTPUT_FILENAME = "entry.txt"
 
 
 def entry_text() -> str:
     line = " ".join(CANDIDATES[PICK].split())
-    if not line or len(line) > MAX_CHARS:
-        raise ValueError(f"entry must be 1-{MAX_CHARS} characters, got {len(line)}")
+    if not line.strip() or not MIN_CHARS <= len(line) <= MAX_CHARS:
+        raise ValueError(
+            f"entry must be {MIN_CHARS}-{MAX_CHARS} non-whitespace characters, "
+            f"got {len(line)}"
+        )
     return line
 
 
 def main() -> None:
-    out_dir = os.environ.get("MONDAY_OUTPUT_DIR", "/output")
-    os.makedirs(out_dir, exist_ok=True)
-    with open(os.path.join(out_dir, "entry.txt"), "w", encoding="utf-8", newline="") as fh:
-        fh.write(entry_text())
+    out_dir = os.environ.get("MONDAY_OUTPUT_DIR", DEFAULT_OUTPUT_DIR)
+    out_path = os.path.join(out_dir, OUTPUT_FILENAME)
+    try:
+        os.makedirs(out_dir, exist_ok=True)
+        with open(out_path, "w", encoding="utf-8", newline="") as fh:
+            fh.write(entry_text())
+    except OSError as exc:
+        raise SystemExit(f"error: cannot write entry to {out_path}: {exc}") from exc
 
 
 if __name__ == "__main__":
